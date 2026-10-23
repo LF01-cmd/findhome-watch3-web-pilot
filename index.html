@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html lang="en" manifest="offline.appcache">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Find Home Pilot</title>
+<style>
+html,body{margin:0;padding:0;background:#061c18;color:#f4fffb;font:15px Arial,Helvetica,sans-serif;text-align:center}
+main{max-width:310px;margin:0 auto;padding:26px 20px 40px}h1{font-size:22px;color:#73eec3;margin:5px 0}p{margin:7px 0}
+button{background:#80efc7;color:#06231b;border:0;border-radius:12px;padding:11px 8px;margin:6px auto;display:block;width:94%;font-size:15px;font-weight:bold}
+.secondary{color:white;background:#2d5447}.panel{padding:10px 8px;margin:12px 0;background:#113228;border:1px solid #326d58;border-radius:13px}
+.small{font-size:12px;line-height:1.4;color:#bfddd0}#status{font-size:14px}#arrow{font-size:43px}#distance{font-size:23px;color:#82f2c9}
+</style></head>
+<body><main>
+<h1>FIND HOME</h1><p class="small">HTTPS / offline compatibility test</p>
+<div class="panel"><p id="status">GPS not started</p><p class="small" id="gpsinfo">No coordinates are sent online</p></div>
+<button id="fix">TEST WATCH GPS</button><button class="secondary" id="save">SAVE THIS POSITION AS HOME</button>
+<div class="panel"><p id="home">Home not saved</p><div id="arrow">â†‘</div><div id="distance">--</div></div>
+<div class="panel small"><div id="secure">Secure: checking</div><div id="storage">Storage: checking</div><div id="appcache">Offline cache: checking</div><div id="sw">Service Worker: checking</div><div id="online">Network: checking</div></div>
+<button id="reload" class="secondary">REOPEN TEST</button></main>
+<script>
+(function() {
+  var $=function(id){return document.getElementById(id);};
+  var loc=null,home=null,homeKey='findhome-pilot-home-v1';
+  function set(id,str){$(id).textContent=str;}
+  function rad(x){return x*Math.PI/180;}
+  function dist(a,b){var d1=rad(b.lat-a.lat),d2=rad(b.lon-a.lon),p=rad(a.lat),q=rad(b.lat);var h=Math.pow(Math.sin(d1/2),2)+Math.cos(p)*Math.cos(q)*Math.pow(Math.sin(d2/2),2);return 6371000*2*Math.asin(Math.min(1,Math.sqrt(h)));}
+  function bear(a,b){var p=rad(a.lat),q=rad(b.lat),d=rad(b.lon-a.lon);return(Math.atan2(Math.sin(d)*Math.cos(q),Math.cos(p)*Math.sin(q)-Math.sin(p)*Math.cos(q)*Math.cos(d))*180/Math.PI+360)%360;}
+  function render(){set('home',home?'Home saved on watch':'Home not saved');if(home&&loc){var d=dist(loc,home);set('distance',d<1000?Math.round(d)+' m':(d/1000).toFixed(2)+' km');$('arrow').style.transform='rotate('+bear(loc,home)+'deg)';}else set('distance','--');}
+  function supported(){set('secure','HTTPS secure context: '+String(window.isSecureContext));try{localStorage.setItem('fh-check','ok');set('storage','Local storage: '+(localStorage.getItem('fh-check')==='ok'?'YES':'NO'));var saved=localStorage.getItem(homeKey);if(saved)home=JSON.parse(saved);}catch(e){set('storage','Local storage ERROR: '+e.name);}render();
+    set('appcache','AppCache: '+(window.applicationCache?'YES / '+window.applicationCache.status:'NO'));set('sw','Service Worker: '+(navigator.serviceWorker?'YES':'NO'));set('online','Network: '+(navigator.onLine?'online':'offline'));
+  }
+  function success(p){loc={lat:p.coords.latitude,lon:p.coords.longitude};set('status','LOCATION RECEIVED');set('gpsinfo','Accuracy: '+Math.round(p.coords.accuracy)+' m. Position stays on watch.');render();}
+  function failure(e){set('status','GPS ERROR '+e.code);set('gpsinfo',e.message||'No error message');}
+  $('fix').onclick=function(){if(!navigator.geolocation){set('status','Geolocation API missing');return;}set('status','Requesting permission / GPS...');set('gpsinfo','This may require a view of the sky');navigator.geolocation.getCurrentPosition(success,failure,{enableHighAccuracy:true,maximumAge:0,timeout:35000});};
+  $('save').onclick=function(){if(!loc){set('status','Get GPS before saving Home');return;}home={lat:loc.lat,lon:loc.lon};try{localStorage.setItem(homeKey,JSON.stringify(home));render();}catch(e){set('status','Storage error: '+e.name);}};
+  $('reload').onclick=function(){location.reload();};
+  if(window.applicationCache){window.applicationCache.addEventListener('cached',function(){set('appcache','Offline cache: READY');});window.applicationCache.addEventListener('updateready',function(){set('appcache','Offline cache: UPDATED');});window.applicationCache.addEventListener('error',function(){set('appcache','Offline cache: ERROR');});}
+  supported();
+})();
+</script><script>(function(){if(navigator.serviceWorker){navigator.serviceWorker.register('./sw.js').then(function(){document.getElementById('sw').textContent='Service Worker: REGISTERED';}).catch(function(e){document.getElementById('sw').textContent='Service Worker ERROR: '+e.name;});}})();</script></body></html>
